@@ -14,13 +14,13 @@ Before you start, you will need to have the following installed on your system:
 1. Clone the repository to your local machine:
 
    ```
-   git clone https://github.com/username/repo-name.git
+   git clone https://github.com/username/connections.git
    ```
    
 2. Navigate to the cloned directory:
 
    ```
-   cd repo-name
+   cd connections
    ```
    
 3. Create a virtual environment:
