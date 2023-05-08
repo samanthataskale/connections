@@ -1,0 +1,187 @@
+{% extends "header.html" %}
+{% block content %}
+<head>
+	<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+	<script type="text/javascript">
+		 var dataids = {{ids|tojson}};
+		 var names = {{names|tojson}};
+		 var csrf_token = "{{ csrf_token() }}";
+	 </script>
+
+	<script src="/static/lib/bindings/utils.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+	<link href="/static/lib/tom-select/tom-select.css" rel="stylesheet">
+	<script src="/static/lib/tom-select/tom-select.complete.min.js"></script>
+
+	<script src="{{url_for('static', filename='select.js')}}" type="text/javascript" defer></script>
+	<script src="{{url_for('static', filename='graph.js')}}" type="text/javascript" defer></script>
+</head>
+
+
+<body>
+
+	<h2 id="namesheader"></h2>
+	<div id="graphcontainer" class="container-fluid min-vh-100">
+	<div id="mainrow" class="row">
+		<div class="col border border-secondary bg-light">
+			<div class="text" id="loadmessage">
+				<text>Loading...</text>
+			</div>
+			<div class="accordion" id="accordionExample">
+				<div class="accordion-item"> <!-- graph controls-->
+				  	<h2 class="accordion-header" id="headingOne">
+						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+						Graph Controls
+						</button>
+				  	</h2>
+				  	<div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+						<div class="accordion-body">
+							Click on a node to see the connections for it. 
+							Double-click on a node to expand it (get the coauthors of the authors in the node).
+							Click and hold a leaf node to delete it from the graph. 
+				  		</div>
+					</div>
+				</div>
+				<div class="accordion-item"> <!-- filters-->
+					<h2 class="accordion-header" id="headingTwo">
+						  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+						  Graph Filtering
+						  </button>
+					</h2>
+					<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+						<p>Click in the first box to choose to filter by either a node (authors) or edge (connection). 
+							Then, in the second box, choose to filter by color (depth of node or type of connection) or by value (name of author or works). 
+							Then, in the third box, choose the specific value(s) to filter by. 
+							Finally, click the "Filter" button to apply the filter.</p> 
+						<div id="filter-menu">
+							<div class="row no-gutters">
+								<div class="row pb-2">
+									<select
+											class="form-select"
+											aria-label="Default select example"
+											onchange="updateFilter(value, 'item')"
+											id="select-item"
+										>
+										<option value="">Filter by edge or node</option>
+										<option value="edge">edge</option>
+										<option value="node">node</option>
+									</select>
+								</div>
+								<div class="row pb-2">
+									<select
+											class="form-select"
+											aria-label="Default select example"
+											onchange="updateFilter(value, 'property')"
+											id="select-property"
+										>
+										<option value="">Select a property...</option>
+									</select>
+								</div>
+								<div class="row pb-2">
+									<select
+											class="form-select"
+											aria-label="Default select example"
+											id="select-value"
+										>
+										<option value="">Select value(s)...</option>
+									</select>
+								</div>
+								<div class="row">
+									<div class="d-flex align-items-center justify-content-evenly">
+										<div class="col-6 pb-2">
+										<button type="button" class="btn btn-primary btn-block" onclick="highlightFilter(filter);"  width="100vh">Filter</button>
+										</div>
+										<div class="col-6 pb-2">
+										<button type="button" class="btn btn-primary btn-block" onclick="clearFilter(true)"  width="100vh">Reset Selection</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="timeline">
+							Hide the most recent connections:<br>
+							<input type="range" class="form-range" id="timeline" width = 50%></label>
+							<div class="limit" id="timelinefirstseen"></div>
+							<div class="limit" id="timelinecurrdate"></div>
+							<div class="limit" id="timelinelastseen"></div>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-item"> <!-- color guide-->
+					<h2 class="accordion-header" id="headingColor">
+						<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseColor" aria-expanded="false" aria-controls="collapseColor">
+						Color Guide
+						</button>
+				  	</h2>
+					<div id="collapseColor" class="accordion-collapse collapse" aria-labelledby="headingColor" data-bs-parent="#accordionExample">
+						<div class="row">
+							<div class="col"> 
+								<h4>Node Color Guide</h4>
+								<div id="rootnodecolor" class="p-2 mb-2">Root Node</div>
+								<div id="firstnodecolor" class="p-2 mb-2">Direct Coauthor</div>
+								<div id="secondnodecolor" class="p-2 mb-2">2nd degree Coauthor</div>
+								<div id="thirdnodecolor" class="p-2 mb-2">3rd degree Coauthor</div>
+								<div id="fournodecolor" class="p-2 mb-2">4+ degree Coauthor</div>
+							</div>
+							<div class="col"> 
+								<h4>Edge Color Guide</h4>
+								<div id="paperedgecolor" class="p-2 mb-2">Paper</div>
+								<div id="patentedgecolor" class="p-2 mb-2">Patent</div>
+								<div id="connectingedgecolor" class="p-2 mb-2">Path between Roots</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<hr>
+			<div>
+				<button id="exportbtn" class="btn btn-primary btn-block" onclick="exportGraph();">Export as .json</button>
+			</div>
+			<hr>
+			<div>
+				<button id="exportbtn" class="btn btn-primary btn-block" onclick="expandGraph();">Expand Every Node (May take a long time)</button>
+			</div>
+			<hr>
+		</div>
+
+
+		<div class="col-6">
+			<div id="mynetwork"></div>
+		</div>
+		<div class="col">
+			<div class="card w-100" >
+				<h5 id="nodeselectedheader" class="card-header">Node Selected: None</h5>
+				<div id="scrollarea" class="card-body overflow-auto">
+				  <p id="nodeselectedbody" class="card-text"></p>
+				</div>
+			</div>
+		</div>
+
+	</div>
+	</div>
+
+	<div id="welcomemodal" class="modal" tabindex="-1">
+		<div class="modal-dialog">
+		  <div class="modal-content">
+			<div class="modal-header">
+			  <h5 class="modal-title">Graph Functionalites</h5>
+			  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+			  <p> Click on a node to see the connections for it. 
+				Double-click on a node to expand it (get the coauthors of the authors in the node).
+				Click and hold a leaf node to delete it from the graph. 
+			<br>
+			The boxes on the left can be used to filter out nodes. Use the slider to hide the most recent edges from the display.</p>
+			</div>
+			<div class="modal-footer">
+			  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+			</div>
+		  </div>
+		</div>
+	  </div>
+
+</body>
+
+{% endblock %}

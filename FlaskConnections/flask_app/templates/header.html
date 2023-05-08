@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block header %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="{{ url_for('index') }}">Home</a>
+    <a href="https://www.semanticscholar.org?utm_source=api">
+        <img src="{{ url_for('static', filename='SSlogo.svg')}}" width="80px" height="80px" padding="0">
+    </a>
+</nav>
+
+{% block content %}{% endblock %}
+{% endblock %}

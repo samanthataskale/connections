@@ -1,0 +1,68 @@
+img {
+    max-width: 80;
+    padding: 1; 
+}
+
+.card-body > img {
+    max-width: 200;
+}
+
+.media-list {
+    border-top: 1px dashed rgb(150, 150, 150);
+}
+
+.review-item {
+    border-bottom: 1px dashed #a5a5a5;
+}
+
+#mynetwork {
+    height: 100vh;
+    background-color: #ffffff;
+    border: 1px solid lightgray;
+    position: relative;
+    float: center;
+}
+
+#rootnodecolor {
+    background-color: #e6bbad;
+}
+
+#firstnodecolor {
+    background-color: #add8e6;
+}
+
+#secondnodecolor {
+    background-color: #b9fc97;
+}
+
+#thirdnodecolor {
+    background-color: #f9d781;
+}
+
+#fournodecolor {
+    background-color: #dbb0fc;
+}
+
+#scrollarea {
+    max-height: 100vh;
+}
+
+#paperedgecolor {
+    background-color: #008000;
+}
+
+#patentedgecolor {
+    background-color: #ff0000;
+}
+
+#connectingedgecolor {
+    background-color: #bc42f5;
+}
+
+.redtext {
+    color: #ff0000;
+}
+
+.greentext {
+    color: #008000;
+}

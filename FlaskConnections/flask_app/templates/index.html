@@ -1,0 +1,129 @@
+{% extends "header.html" %}
+{% block content %}
+
+<head>
+  <script src="{{url_for('static', filename='import_graph.js')}}" type="text/javascript" defer></script>
+  <script type="text/javascript">
+    var csrf_token = "{{ csrf_token() }}";
+  </script>
+</head>
+
+<div class="container">
+	<h2>Please use the search bar below to search for researchers!</h2>
+	<fieldset id="formselect">
+    <legend>Select an input type:</legend>
+		  <label><input type="radio" id="input_select-0" value="name" name="formselect">By Name</label>
+		  <label><input type="radio" id="input_select-1" value="data" name="formselect">By Database ID</label>
+	</fieldset>
+
+  <form action="/" id="nameform" class="form-inline my-2 my-lg-0" method="POST">
+      {{ form.csrf_token }}
+      {{ form.search_query(class="form-control", placeholder="Author Name") }}
+      {{ form.search_query_two(class="form-control", placeholder="Second Author Name (Optional)") }}
+      {% if form.search_query.errors or form.search_query_two.errors %}
+      <div class="alert alert-warning" role="alert">
+          {% for error in form.search_query.errors %}
+              <span>{{ error }}</span>
+          {% endfor %}
+          {% for error in form.search_query_two.errors %}
+              <span>{{ error }}</span>
+          {% endfor %}
+      </div>
+      {% endif %}
+
+      {{ form.submitname(class="btn btn-outline-success") }}
+  </form>
+	<form action="/" id="idform" class="form-inline my-2 my-lg-0" method="POST">
+      {{ form2.csrf_token }}
+      <div id="idinput" class="form-group row">
+        <div class="col-sm">{{ form2.idsource(class="form-select") }} </div>
+        <div class="col-sm">{{ form2.iddata(class="form-control", placeholder="ID from the select datasource") }} </div>
+      </div>
+      <div id="idinputtwo" class="form-group row">
+        <div class="col-sm">{{ form2.idsource_two(class="form-select") }} </div>
+        <div class="col-sm">{{ form2.iddata_two(class="form-control", placeholder="ID from the select datasource (Optional)") }} </div>
+      </div>
+
+      {% if form2.iddata.errors or form2.iddata_two.errors %}
+      <div class="alert alert-warning" role="alert">
+          {% for error in form2.iddata.errors  %}
+              <span>{{ error }}</span>
+          {% endfor %}
+          {% for error in form2.iddata_two.errors  %}
+              <span>{{ error }}</span>
+          {% endfor %}
+      </div>
+      {% endif %}
+
+      {{ form2.submitid(class="btn btn-outline-success") }}
+  </form>
+
+  <br>
+  <h4>
+  <label for="import_graph_button">Import a connections graph:</label>
+  </h4>
+
+  <input type="file"
+        id="import_graph_button" name="import_graph_button"
+        accept="application/json, text/plain">
+</div>
+
+<div id="welcomemodal" class="modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Welcome to Connections</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>	This website allows you to see connections between researchers. 
+			After closing this message, search for a researcher in the search box. 
+			Click <a href="/info">here</a> for detailed information about this website.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+    var show_id = false;
+    {% if form2.iddata.errors or form2.iddata_two.errors %}
+      show_id = true;
+    {% endif %}
+    var has_error = false;
+    {% if form2.iddata.errors or form2.iddata_two.errors or form.search_query.errors or form.search_query_two.errors %}
+      has_error = true;
+    {% endif %}
+
+    $(window).on('load', function() {
+          if (!has_error){
+            $('#welcomemodal').modal('show')
+          }
+          document.querySelector("#input_select-0").checked = !show_id
+          document.querySelector("#input_select-1").checked = show_id
+          document.querySelector("#input_select-0").addEventListener("change", toggle_vis);
+          document.querySelector("#input_select-1").addEventListener("change", toggle_vis);
+          toggle_vis();
+      });
+
+    function toggle_vis() {
+      if ( $("#input_select-0").is(':checked')){
+        $('#nameform').css("display", "block");
+        $('#idform').css("display", "None");
+        return
+      }
+      if ( $("#input_select-1").is(':checked')){
+        $('#nameform').css("display", "None");
+        $('#idform').css("display", "block");
+        return
+      }
+
+    }
+
+
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,307 @@
+{% extends "header.html" %}
+{% block content %}
+
+{% if error_msg %}
+    <p>{{ error_msg }}</p>
+{% endif %}
+
+<div class="container-fluid">
+	<h2 id="currname">Author Disambiguation for &#34;&#34;</h2>
+	<!--<h4>Choose the specific author you were looking for </h4>-->
+
+	<div id="disambiguation_0">
+		<h4> Choose the specific person from Semantic Scholar you are looking for </h4>
+		<div class="card">
+			<div class="card-header row">
+					<h5 class="col-sm-8">Skip Semantic Scholar Lookup</h5>
+					<div class="col-sm-4">
+						<button id="{{ sources[0][0]['skipid'] }}" class="btn btn-primary stretched-link">Confirm Choice</button>
+					</div>
+			</div>
+		</div>
+		<div id="disambigcards_0">
+
+		</div>
+	</div>
+
+	<div id="disambiguation_1">
+		<h4> Choose the specific person from Patents View you are looking for </h4>
+		<div class="card">
+			<div class="card-header row">
+					<h5 class="col-sm-8">Skip Patents View Lookup</h5>
+					<div class="col-sm-4">
+						<button id="{{ sources[0][1]['skipid'] }}" class="btn btn-primary stretched-link">Confirm Choice</button>
+					</div>
+			</div>
+		</div>
+		<div id="disambigcards_1">
+
+		</div>
+	</div>
+
+</div>
+<script type="text/javascript">
+	"use strict";
+	var csrf_token = "{{ csrf_token() }}"; //needed to query the server
+	var names = {{names|tojson}}; //grab the names. used to display and because it has to be connected to the graph screen somehow
+	var numNames = names.length; //for convenience, later
+	var aliases = [names[0]] //will be updated as the different people are disambiguation
+
+	var results = {{sources|tojson}}; //a 2d array - same as sources
+	var numSources = results[0].length //for convenience
+
+	//console.log("results " + results)
+
+	var skipids = results[0].map(x => x.skipid) //ideally, this would be added independently of sources
+	var ids = Array(numNames) //a 2d array of names [person][source]
+	for (let i = 0; i < numNames; i ++) {
+		ids[i] = structuredClone(skipids) //default values of the skipvalues
+	}
+
+	var cards = [makeCardSS, makeCardPV] //used to create HTML
+	var curr_source = -1 //initial values
+	var curr_person = 0
+
+	var first_seen = Array(numNames); //1d array per person
+	var last_seen = Array(numNames); //1d array per person
+
+	//set all to not be visisble
+	for (let i = 0; i < numSources; i ++){
+		let id_str = `disambiguation_${i}`
+		$('#'+ id_str).css("display", "None");
+	}
+
+	//set event handlers for the skips
+	function set_event_handlers() {
+		const btns = document.querySelectorAll('.btn');
+		btns.forEach( btn => btn.addEventListener('click', set_id_for_source))
+	}
+
+	//establish ids, first_seen, last_seen if possible based on if the id is definite
+	for (let i = 0; i < numNames; i ++){
+		let known_idx = results[i]["defin"]
+		for (let j = 0; j < numSources; j++){
+			if (results[i][j]["defin"]){
+				ids[i][j] = results[i][j]["results"][0]["sourceId"]
+				first_seen[i] = results[i][j]["results"][0]["first_seen"]
+				last_seen[i] = results[i][j]["results"][0]["last_seen"]
+			}
+		}
+	}
+	//console.log("initial IDs")
+	//console.log(ids)
+
+	//set aliases as best as possible based on definitive ids
+	for (let i = 0; i < results.length; i ++){
+		if (results[i]["defin"] && results[i]["hasaliases"]){
+			if (results[i]["results"][0]["aliases"]){
+				aliases = [...aliases,  ...results[i]["results"][0]["aliases"]]
+			}
+		}
+	}
+	//console.log("initial aliases")
+	//console.log(aliases)
+
+	//initial set
+	window.onload = function () {
+		//debugger;
+		load_next_set()
+
+	}
+
+	function set_id_for_source(e){
+		//if you are not done with the current person
+		let cp = curr_person
+		let cs = curr_source
+		if (cs == numSources - 1){
+			aliases = []
+		}
+		if (e.currentTarget.id != ids[cp][cs]  && cs < ids.length - 1){
+			ids[cp][cs] = e.currentTarget.id
+			let chosen_attrs = getEntryFromResults(cp, cs, ids[cp][cs])
+			if (results[cp][cs]["hasaliases"] && chosen_attrs["aliases"]){
+				aliases = [...aliases, ...chosen_attrs["aliases"]]
+			}
+			//console.log("updated aliases")
+			//console.log(aliases)
+			let selected_first_seen = chosen_attrs["first_seen"]
+			let selected_last_seen = chosen_attrs["last_seen"]
+			if (first_seen[cp] == undefined){
+				first_seen[cp] = selected_first_seen
+				last_seen[cp] = selected_last_seen
+			} else {
+				first_seen[cp] = first_seen[cp] > selected_first_seen ? selected_first_seen : first_seen[cp]
+				last_seen[cp] = last_seen[cp] < selected_last_seen ? selected_last_seen : last_seen[cp]
+			}
+		} else if (e.currentTarget.id != ids[cp][cs] ){
+			ids[cp][cs] = e.currentTarget.id
+		}
+		load_next_set()
+	}
+
+	//remove entries that do not fit in based on the dates
+	//this is not the *best* assumption, but it differentiates between authors
+	//from the 1800s and the 2000s. 
+	function filter_bydate(author){
+		let too_early = author["last_seen"] < first_seen[curr_person]
+		let too_late = author["first_seen"] > last_seen[curr_person]
+		let is_invalid_range = too_early || too_late;
+		return !is_invalid_range
+	}
+
+	//handle disambiguation stage transitions
+	async function load_next_set() {
+		//console.log("top of load next set ids")
+		//console.log(ids)
+
+		//hide current stuff
+		if (curr_source > -1){
+			//if there is something to hide
+			let disambig_id = `#disambiguation_${curr_source}`
+			$(disambig_id).css("display", "None");
+		} else {
+			//set the initial name on first load
+			document.getElementById("currname").innerHTML = `Author Disambiguation for "${names[curr_person]}"`
+		}
+
+		//increment the curr_source
+		//so initially, you start off at zero.
+		curr_source += 1
+		//done with current person disambiguation
+		if (curr_source == numSources){
+			curr_person += 1 //increment person and reset name
+			document.getElementById("currname").innerHTML = `Author Disambiguation for "${names[curr_person]}"`
+			//clear out old cards
+			for (let j = 0; j < numSources; j ++){
+				let disambig_id = `#disambigcards_${j}`
+				document.querySelector(disambig_id).innerHTML = ""
+			}
+			curr_source = 0 //set the source back to the start
+		}
+		let cp = curr_person //makes the indices a LOT smaller
+		let cs = curr_source
+		if (curr_person == numNames) { //are you done with the disambiguatoin
+
+			// move onto the graph screen.
+			//get the relevant data, aka names and IDs
+			let data = { "names" : names, "ids" : ids.flat() }
+			const searchParams = new URLSearchParams(data);
+
+			//create and anchor element and click it
+			//maybe there is a better way, but this does the trick
+			const anchor = document.createElement("a");
+			let new_url = '/graph?' + (searchParams.toString());
+
+			anchor.setAttribute( "href", new_url  );
+			let clickEvent = new MouseEvent("click", {
+				"view": window,
+				"bubbles": true,
+				"cancelable": false
+			});
+			anchor.dispatchEvent(clickEvent)
+
+		} else {
+			//get the current set of results
+			let datasource_results = results[cp][cs]["results"]
+			//the first source MUST have aliases
+			//this is for future sources where you do not have a definitive ID
+			if (curr_source > 0 && !results[cp][cs]["defin"]){
+				//get more results based on the aliases
+				datasource_results = await get_more_results()
+				results[cp][cs]["results"] = datasource_results
+			}
+			console.log("current datasource results")
+			console.log(datasource_results)
+			if ( ids[cp][cs] == skipids[curr_source] ){
+				// get rid of non-overlapping in preparation for showing them
+				datasource_results = datasource_results.filter( filter_bydate )
+			} else { //id is known already, so skip this current stage and go to the next
+				ids[cp][cs] = datasource_results[0]["sourceId"]
+				load_next_set()
+			}
+			//console.log(datasource_results.length)
+
+			if (datasource_results.length == 0 ) {
+				//if no valid IDs (such as PV not having an obsurce name, skip the stage)
+				load_next_set()
+			} else {
+				//have to go through the disambiguation steps
+				//load all the cards
+				let disambig_id = `#disambigcards_${curr_source}`
+				let curr_div = document.querySelector(disambig_id)
+				let card_function = cards[curr_source]
+				datasource_results.forEach( (elem) => {curr_div.innerHTML += card_function(elem);} )
+				set_event_handlers()
+				//show the correct div (currently all of them are hidden)
+				disambig_id = `#disambiguation_${curr_source}`
+				$(disambig_id).css("display", "block");
+			}
+		}
+
+	}
+
+	//get results for a next stage (currently only PV) based on the currennt list of aliases (from SS)
+	async function get_more_results(){
+		//curr_person not needed because we have the aliases
+		let data = { "index" : curr_source, "aliases" : aliases }
+		let post_request = {
+			"method": "POST",
+			"headers": {"Content-Type": "application/json", 'X-CSRF-TOKEN': csrf_token},
+			"body": JSON.stringify(data),
+		}
+		const result = await fetch("/getmoreentries", post_request);
+		const json = await result.json();
+		//console.log("returned json for get more results")
+		//console.log(json)
+		return json
+	}
+
+	//helper function for getting information in sources based on an ID
+	function getEntryFromResults(personindex, sourceindex, sourceID){
+		return results[personindex][sourceindex]["results"].find( elem => elem["sourceId"] == sourceID )
+	}
+
+	//functions for each source to make the card
+	function makeCardSS(result){
+		let card_html = `
+		<div id="${result.sourceId}-card0" class="card">
+			<h5 class="card-header"><a href=${result.url} title="View this author on the Semantic Scholar Website">${result.name}</a></h5>
+			<div class="card-body row">
+				<div class="col-sm-8">
+					<p class="card-text">
+					H-Index: ${result.hIndex} <br>
+					Number of Papers: ${result.paperCount}, Most Cited Paper: ${result.paper} <br>
+					Dates Active: ${result.first_seen} - ${result.last_seen} <br>
+					</p>
+				</div>
+				<div class="col-sm-4">
+					<button id="${result.sourceId}" class="btn btn-primary">Choose This Author</button>
+				</div>
+			</div>
+		</div>`
+		return card_html
+	}
+
+	function makeCardPV(result){
+		let card_html = `
+		<div id="${result.sourceId}-card1" class="card">
+			<h5 class="card-header">${names[curr_person]}</h5>
+			<div class="card-body row">
+				<div class="col-sm-8">
+					<p class="card-text">
+						First Patent Date: ${result.first_seen} <br>
+						Last Patent Date: ${result.last_seen}, Last Patent City: ${result.last_city}<br>
+						Number of Patents: ${result.numPatents}<br>
+					</p>
+				</div>
+				<div class="col-sm-4">
+					<button id="${result.sourceId}" class="btn btn-primary stretched-link">Choose This Inventor</button>
+				</div>
+			</div>
+		</div>`
+		return card_html
+	}
+
+</script>
+
+{% endblock %}
