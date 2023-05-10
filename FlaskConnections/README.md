@@ -14,7 +14,7 @@ Before you start, you will need to have the following installed on your system:
 1. Clone the repository to your local machine:
 
    ```
-   git clone https://github.com/samtaskale/connections.git
+   git clone https://github.com/samanthataskale/connections.git
    ```
    
 2. Navigate to the cloned directory:
