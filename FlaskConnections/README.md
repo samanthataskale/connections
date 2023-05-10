@@ -1,6 +1,6 @@
 # Flask App Installation Guide
 
-This guide will walk you through the steps required to install and run a Flask app from a GitHub repository. 
+This guide will walk you through the steps required to install and run the connections application. 
 
 ## Prerequisites
 
